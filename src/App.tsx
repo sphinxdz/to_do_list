@@ -1,35 +1,72 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState } from 'react';
+import './App.css';
 
-function App() {
-  const [count, setCount] = useState(0)
+type Priority = 'high' | 'medium' | 'low';
 
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+interface Task {
+  id: number;
+  text: string;
+  completed: boolean;
+  priority: Priority;
 }
 
-export default App
+function App() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [inputValue, setInputValue] = useState<string>('');
+  const [priority, setPriority] = useState<Priority>('medium');
+  const [nextId, setNextId] = useState<number>(0);
+
+  const addTask = () => {
+    if (inputValue.trim() === '') return;
+    const newTask: Task = { id: nextId, text: inputValue, completed: false, priority: priority };
+    setTasks([...tasks, newTask]);
+    setNextId(nextId + 1);
+    setInputValue('');
+  };
+
+  const toggleTask = (id: number) => {
+    setTasks(tasks.map(task => task.id === id ? { ...task, completed: !task.completed } : task));
+  };
+
+  const deleteTask = (id: number) => {
+    setTasks(tasks.filter(task => task.id !== id));
+  };
+
+  const priorityOrder: { [key in Priority]: number } = {
+    high: 3,
+    medium: 2,
+    low: 1,
+  };
+
+  const sortedTasks = tasks.slice().sort((a, b) => priorityOrder[b.priority] - priorityOrder[a.priority]);
+
+  return (
+    <div className="App">
+      <h1>Smart To-Do List</h1>
+      <div className="input-container">
+        <input
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          placeholder="Add a new task"
+        />
+        <select value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+        <button onClick={addTask}>Add</button>
+      </div>
+      <ul className="task-list">
+        {sortedTasks.map((task) => (
+          <li key={task.id} className={`${task.completed ? 'completed' : ''} priority-${task.priority}`}>
+            <span onClick={() => toggleTask(task.id)}>{task.text}</span>
+            <button onClick={() => deleteTask(task.id)}>Delete</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default App;
