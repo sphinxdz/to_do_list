@@ -22,8 +22,14 @@ function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [inputValue, setInputValue] = useState<string>('');
   const [priority, setPriority] = useState<Priority>('medium');
-  const [reminderDate, setReminderDate] = useState<Date | null>(null); // New state for reminder
+  const [reminderDate, setReminderDate] = useState<Date | null>(null); // For new tasks
   const [nextId, setNextId] = useState<number>(0);
+
+  // Editing state
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState<string>('');
+  const [editingPriority, setEditingPriority] = useState<Priority>('medium');
+  const [editingReminder, setEditingReminder] = useState<Date | null>(null);
 
   // Reference to the hidden file input
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -36,12 +42,12 @@ function App() {
       text: inputValue,
       completed: false,
       priority,
-      reminder: reminderDate || undefined, // Include reminder if set
+      reminder: reminderDate || undefined,
     };
     setTasks([...tasks, newTask]);
     setNextId(nextId + 1);
     setInputValue('');
-    setReminderDate(null); // Reset the date picker
+    setReminderDate(null);
   };
 
   // Function to toggle task completion
@@ -56,6 +62,32 @@ function App() {
     setTasks(tasks.filter(task => task.id !== id));
   };
 
+  // Function to start editing a task
+  const startEditing = (id: number) => {
+    const taskToEdit = tasks.find(task => task.id === id);
+    if (taskToEdit) {
+      setEditingTaskId(id);
+      setEditingText(taskToEdit.text);
+      setEditingPriority(taskToEdit.priority);
+      setEditingReminder(taskToEdit.reminder || null);
+    }
+  };
+
+  // Function to save edited task
+  const saveEdit = () => {
+    setTasks(tasks.map(task =>
+      task.id === editingTaskId
+        ? { ...task, text: editingText, priority: editingPriority, reminder: editingReminder || undefined }
+        : task
+    ));
+    setEditingTaskId(null); // Exit editing mode
+  };
+
+  // Function to cancel editing
+  const cancelEdit = () => {
+    setEditingTaskId(null); // Exit editing mode without saving
+  };
+
   // Check for due reminders and trigger notifications
   useEffect(() => {
     const interval = setInterval(() => {
@@ -63,8 +95,6 @@ function App() {
       tasks.forEach((task) => {
         if (task.reminder && task.reminder <= now && !task.completed) {
           toast.info(`Reminder: ${task.text}`);
-          // Optional: Uncomment to clear reminder after notification
-          // setTasks(prev => prev.map(t => t.id === task.id ? { ...t, reminder: undefined } : t));
         }
       });
     }, 60000); // Check every minute
@@ -76,7 +106,7 @@ function App() {
   const saveToFile = () => {
     const tasksToSave = tasks.map((task) => ({
       ...task,
-      reminder: task.reminder ? task.reminder.toISOString() : undefined, // Convert Date to string
+      reminder: task.reminder ? task.reminder.toISOString() : undefined,
     }));
     const data = JSON.stringify(tasksToSave);
     const blob = new Blob([data], { type: 'application/json' });
@@ -97,7 +127,7 @@ function App() {
         try {
           const loadedTasks = JSON.parse(e.target?.result as string).map((task: any) => ({
             ...task,
-            reminder: task.reminder ? new Date(task.reminder) : undefined, // Convert string to Date
+            reminder: task.reminder ? new Date(task.reminder) : undefined,
           }));
           setTasks(loadedTasks);
           if (loadedTasks.length > 0) {
@@ -151,22 +181,52 @@ function App() {
           selected={reminderDate}
           onChange={(date: Date | null) => setReminderDate(date)}
           showTimeSelect
-          dateFormat="Pp" // Example: "10/25/2023, 2:30 PM"
+          dateFormat="Pp"
           placeholderText="Set reminder"
         />
         <button onClick={addTask}>Add</button>
       </div>
       <ul className="task-list">
         {sortedTasks.map((task) => (
-          <li
-            key={task.id}
-            className={`${task.completed ? 'completed' : ''} priority-${task.priority}`}
-          >
-            <span onClick={() => toggleTask(task.id)}>
-              {task.text} {task.reminder && ` - Reminder: ${task.reminder.toLocaleString()}`}
-            </span>
-            <button onClick={() => deleteTask(task.id)}>Delete</button>
-          </li>
+          editingTaskId === task.id ? (
+            // Editing view
+            <li key={task.id} className={`priority-${editingPriority}`}>
+              <input
+                type="text"
+                value={editingText}
+                onChange={(e) => setEditingText(e.target.value)}
+              />
+              <select
+                value={editingPriority}
+                onChange={(e) => setEditingPriority(e.target.value as Priority)}
+              >
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+              <DatePicker
+                selected={editingReminder}
+                onChange={(date: Date | null) => setEditingReminder(date)}
+                showTimeSelect
+                dateFormat="Pp"
+                placeholderText="Set reminder"
+              />
+              <button onClick={saveEdit}>Save</button>
+              <button onClick={cancelEdit}>Cancel</button>
+            </li>
+          ) : (
+            // Normal view
+            <li
+              key={task.id}
+              className={`${task.completed ? 'completed' : ''} priority-${task.priority}`}
+            >
+              <span onClick={() => toggleTask(task.id)}>
+                {task.text} {task.reminder && ` - Reminder: ${task.reminder.toLocaleString()}`}
+              </span>
+              <button onClick={() => deleteTask(task.id)}>Delete</button>
+              <button onClick={() => startEditing(task.id)}>Edit</button>
+            </li>
+          )
         ))}
       </ul>
       <div>
